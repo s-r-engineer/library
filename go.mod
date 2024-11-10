@@ -1,4 +1,4 @@
-module library
+module github.com/s-r-engineer/library
 
 go 1.23.1
 
