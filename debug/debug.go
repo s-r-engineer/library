@@ -1,4 +1,4 @@
-package debug
+package libraryDebug
 
 func CallStack() {
 

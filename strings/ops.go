@@ -1,4 +1,4 @@
-package strings
+package libraryStrings
 
 import "strings"
 
