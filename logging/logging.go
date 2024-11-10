@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"github.com/davecgh/go-spew/spew"
 	"go.uber.org/zap"
 )
 
@@ -24,4 +25,8 @@ func InitLogger() {
 	Fatal = logger.Fatal
 	Debug = logger.Debug
 	Sync = logger.Sync
+}
+
+func Dumper(args ...any) {
+	spew.Dump(args...)
 }
