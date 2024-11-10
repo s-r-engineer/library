@@ -2,7 +2,7 @@ package libraryErrors
 
 import "fmt"
 
-func Panicer(err error) {
+func Panicer(err any) {
 	if err != nil {
 		panic(err)
 	}
