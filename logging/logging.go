@@ -16,6 +16,10 @@ var Debug func(string, ...zap.Field)
 
 var Sync func() error
 
+func init() {
+        InitLogger()
+}
+
 func InitLogger() {
 	logger = zap.Must(zap.NewDevelopment())
 	Info = logger.Info
