@@ -3,9 +3,9 @@ package libraryNordvpn
 import (
 	"encoding/json"
 	"fmt"
+	libraryHttp "github.com/s-r-engineer/library/http"
 	"io"
 	"net"
-	"net/http"
 )
 
 const DefaultRecommendationsURL = "https://api.nordvpn.com/v1/servers/recommendations?filters[servers_technologies][identifier]=wireguard_udp&limit=1"
@@ -15,7 +15,7 @@ func FetchServerData(country int) (string, string, string, string, error) {
 	if country > 0 {
 		url += fmt.Sprintf("&filters[country_id]=%d", country)
 	}
-	resp, err := http.Get(url)
+	resp, err := libraryHttp.GetUrl(url)
 	if err != nil {
 		return "", "", "", "", err
 	}
