@@ -10,6 +10,7 @@ import (
 
 const DefaultRecommendationsURL = "https://api.nordvpn.com/v1/servers/recommendations?filters[servers_technologies][identifier]=wireguard_udp&limit=1"
 
+// FetchServerData will return hostname, ip, public key, country code and error
 func FetchServerData(country int) (string, string, string, string, error) {
 	url := DefaultRecommendationsURL
 	if country > 0 {
