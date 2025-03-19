@@ -9,6 +9,8 @@ import (
 var defaultClient *http.Client
 var defaultTimeoutInSeconds int64 = 5
 
+const defaultRetries int = 5
+
 func init() {
 	defaultClient = &http.Client{
 		Timeout: time.Duration(defaultTimeoutInSeconds) * time.Second,
@@ -29,6 +31,12 @@ func GetUrl(ref string) (*http.Response, error) {
 	return do(&req)
 }
 
-func do(req *http.Request) (*http.Response, error) {
-	return defaultClient.Do(req)
+func do(req *http.Request) (response *http.Response, err error) {
+	for i := defaultRetries; i > 0; i-- {
+		response, err = defaultClient.Do(req)
+		if err == nil {
+			return response, nil
+		}
+	}
+	return response, err
 }
