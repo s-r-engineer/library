@@ -29,7 +29,7 @@ func ReadConnection(conn GenericConnection, length int) (data []byte, err error)
 			}
 			return data, err
 		}
-		if n < bufferLength {
+		if n < bufferLength || len(buffer) == length {
 			break
 		}
 	}
