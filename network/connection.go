@@ -48,13 +48,17 @@ func WriteConnection(conn GenericConnection, data []byte) error {
 	return nil
 }
 
-func ConnectPipes(conn1, conn2 GenericConnection) {
-	copyData := func(dst, src GenericConnection) {
+func ConnectPipes(conn1, conn2 GenericConnection, errChan chan error) {
+	copyData := func(dst, src GenericConnection, errChan chan error) {
 		defer dst.Close()
 		defer src.Close()
 		_, err := io.Copy(dst, src)
-		libraryErrors.Errorer(err)
+		if errChan != nil {
+			errChan <- err
+		} else {
+			libraryErrors.Errorer(err)
+		}
 	}
-	go copyData(conn1, conn2)
-	go copyData(conn2, conn1)
+	go copyData(conn1, conn2, errChan)
+	go copyData(conn2, conn1, errChan)
 }
