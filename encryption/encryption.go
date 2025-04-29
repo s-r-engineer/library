@@ -17,12 +17,32 @@ const (
 	iterations  = 100000
 )
 
-func deriveKey(passphrase, salt string) []byte {
-	return pbkdf2.Key([]byte(passphrase), []byte(salt), iterations, keyLength, sha512.New)
+func NewED(passphrase, salt string) (*ED, error) {
+	nonce := make([]byte, nonceLength)
+	_, err := io.ReadFull(rand.Reader, nonce)
+	if err != nil {
+		return nil, err
+	}
+	return &ED{passphrase: passphrase, salt: []byte(salt), nonce: nonce}, nil
 }
 
-func EncryptAES(passphrase, salt string, plaintextBytes []byte) ([]byte, error) {
-	key := deriveKey(passphrase, salt)
+type ED struct {
+	salt []byte
+	passphrase  string
+	lock, unlock func()
+	nonce int
+}
+
+func (e *ED) getNonce() []byte {
+
+}
+
+func (e *ED) deriveKey() []byte {
+	return pbkdf2.Key([]byte(e.passphrase), e.salt, iterations, keyLength, sha512.New)
+}
+
+func (e *ED) EncryptAES(plaintextBytes []byte) ([]byte, error) {
+	key := e.deriveKey()
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -31,16 +51,12 @@ func EncryptAES(passphrase, salt string, plaintextBytes []byte) ([]byte, error) 
 	if err != nil {
 		return nil, err
 	}
-	nonce := make([]byte, nonceLength)
-	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
-		return nil, err
-	}
-	ciphertext := aesGCM.Seal(nonce, nonce, plaintextBytes, nil)
-	return ciphertext, nil
+	nonce := e.getNonce()
+	return aesGCM.Seal(nonce, nonce, plaintextBytes, nil), nil
 }
 
-func DecryptAES(passphrase, salt string, encryptedBytes []byte) ([]byte, error) {
-	key := deriveKey(passphrase, salt)
+func (e *ED) DecryptAES(encryptedBytes []byte) ([]byte, error) {
+	key := e.deriveKey()
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
