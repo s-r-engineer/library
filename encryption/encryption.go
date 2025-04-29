@@ -24,26 +24,22 @@ func ValueOrDefault[T int | int64 | uint | uint64](value, defaults T, f func(T, 
 	return value
 }
 
-func NewED(passphrase, salt string, keyLengthUser, iterationsUser, nonceLengthUser int) (*ED, error) {
+func NewED(secret, salt []byte, keyLengthUser, iterationsUser, nonceLengthUser int) (*ED, error) {
 	randomNonce, err := libraryNumbers.RandomUint64()
 	if err != nil {
 		return nil, err
 	}
 	return &ED{
-		keyLength:   ValueOrDefault(keyLengthUser, keyLength, nil),
-		iterations:  ValueOrDefault(iterationsUser, iterations, nil),
-		nonceLength: ValueOrDefault(nonceLengthUser, nonceLength, nil),
-		passphrase:  passphrase,
-		salt:        []byte(salt),
+		nonceLength: ValueOrDefault(nonceLengthUser, nonceLength, func(a, b int) bool { return a > b }),
+		key:         pbkdf2.Key(secret, salt, ValueOrDefault(iterationsUser, iterations, nil), ValueOrDefault(keyLengthUser, keyLength, nil), sha512.New),
 		nonce:       randomNonce,
 	}, nil
 }
 
 type ED struct {
-	salt                               []byte
-	passphrase                         string
+	key                                []byte
 	nonce                              uint64
-	keyLength, nonceLength, iterations int
+	nonceLength int
 }
 
 func (e *ED) getNonce() []byte {
@@ -53,13 +49,8 @@ func (e *ED) getNonce() []byte {
 	return bytes
 }
 
-func (e *ED) deriveKey() []byte {
-	return pbkdf2.Key([]byte(e.passphrase), e.salt, e.iterations, e.keyLength, sha512.New)
-}
-
 func (e *ED) EncryptAES(plaintextBytes []byte) ([]byte, error) {
-	key := e.deriveKey()
-	block, err := aes.NewCipher(key)
+	block, err := aes.NewCipher(e.key)
 	if err != nil {
 		return nil, err
 	}
@@ -72,8 +63,7 @@ func (e *ED) EncryptAES(plaintextBytes []byte) ([]byte, error) {
 }
 
 func (e *ED) DecryptAES(encryptedBytes []byte) ([]byte, error) {
-	key := e.deriveKey()
-	block, err := aes.NewCipher(key)
+	block, err := aes.NewCipher(e.key)
 	if err != nil {
 		return nil, err
 	}
