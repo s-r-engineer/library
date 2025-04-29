@@ -24,15 +24,22 @@ func GetDHSecretFromConnection(conn libraryNetwork.GenericConnection, p *big.Int
 	}
 
 	pub := new(big.Int).Exp(g, priv, p)
-
-	if _, err := conn.Write(pub.Bytes()); err != nil {
+	pubBytes := pub.Bytes()
+	lenBuf := []byte{byte(len(pubBytes))}
+	if _, err := conn.Write(lenBuf); err != nil {
 		return nil, wrappedError(err)
 	}
+	if _, err := conn.Write(pubBytes); err != nil {
+		return nil, wrappedError(err)
+	}
+	lenBuf = make([]byte, 1)
 
-	// Prepare a buffer big enough for the public key
-	otherSidePub := make([]byte, p.BitLen()/8+1)
+	if _, err := io.ReadFull(conn, lenBuf); err != nil {
+		return nil, wrappedError(err)
+	}
+	pubLen := int(lenBuf[0])
 
-	// Read fully the peer's public key
+	otherSidePub := make([]byte, pubLen)
 	if _, err := io.ReadFull(conn, otherSidePub); err != nil {
 		return nil, wrappedError(err)
 	}
@@ -81,7 +88,7 @@ func GetECDHKeysFromConnection(conn libraryNetwork.GenericConnection) (sendKey, 
 	}
 
 	return deriveECDHKeys(sharedSecret, pubKeyBytes, otherPubKeyBytes)
-	}
+}
 
 func deriveECDHKeys(sharedSecret, pubA, pubB []byte) (sendKey, recvKey []byte, err error) {
 	salt := []byte("ECDH-HKDF-salt")
