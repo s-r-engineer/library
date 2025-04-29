@@ -3,23 +3,38 @@ package hell
 import (
 	"encoding/binary"
 	"io"
-	"math/big"
 
 	libraryEncryption "github.com/s-r-engineer/library/encryption"
-	libraryErrors "github.com/s-r-engineer/library/errors"
 	libraryNetwork "github.com/s-r-engineer/library/network"
 )
 
-func MakeAHellCircle(connection libraryNetwork.GenericConnection, salt string, p, g *big.Int) libraryNetwork.GenericConnection {
-	secret, err := libraryEncryption.GetDHSecretFromConnection(connection, p, g)
-	libraryErrors.Errorer(err)
-	return &HellCircle{connection: connection, salt: salt, password: secret}
+func MakeAHellCircle(connection libraryNetwork.GenericConnection) (libraryNetwork.GenericConnection, error) {
+	toEncrypt, toDecrypt, err := libraryEncryption.GetECDHKeysFromConnectionWithKeyDerivation(connection)
+	if err != nil {
+		return nil, err
+	}
+	salt, err := libraryEncryption.GetECDHKeysFromConnection(connection)
+	if err != nil {
+		return nil, err
+	}
+	EDToEncrypt, err := libraryEncryption.NewED(toEncrypt, salt, 0, 0, 0)
+	if err != nil {
+		return nil, err
+	}
+	EDToDecrypt, err := libraryEncryption.NewED(toDecrypt, salt, 0, 0, 0)
+	if err != nil {
+		return nil, err
+	}
+	return &HellCircle{
+		EDToEncrypt: EDToEncrypt,
+		EDToDecrypt: EDToDecrypt,
+		connection:  connection,
+	}, nil
 }
 
 type HellCircle struct {
 	connection libraryNetwork.GenericConnection
-	salt       string
-	password   string
+	EDToDecrypt, EDToEncrypt *libraryEncryption.ED
 }
 
 func (m HellCircle) Read(b []byte) (int, error) {
@@ -33,7 +48,7 @@ func (m HellCircle) Read(b []byte) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	decryptedData, err := libraryEncryption.DecryptAES(m.password, m.salt, data)
+	decryptedData, err := m.EDToDecrypt.DecryptAES(data)
 	if err != nil {
 		return 0, err
 	}
@@ -45,7 +60,7 @@ func (m HellCircle) Read(b []byte) (int, error) {
 }
 
 func (m HellCircle) Write(b []byte) (int, error) {
-	encryptedData, err := libraryEncryption.EncryptAES(m.password, m.salt, b)
+	encryptedData, err := m.EDToEncrypt.EncryptAES(b)
 	if err != nil {
 		return 0, err
 	}
@@ -54,7 +69,6 @@ func (m HellCircle) Write(b []byte) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	// m.connection.Write(encryptedData)
 	_, err = m.connection.Write(encryptedData)
 	if err != nil {
 		return 0, err
