@@ -7,24 +7,25 @@ import (
 )
 
 func ReadConnection(conn GenericConnection, length int) (data []byte, err error) {
-	bufferLength := 1024
-	if length > 0 {
-		bufferLength = length
+	if length == 0 {
+		length = 4096
 	}
-	buffer := make([]byte, bufferLength)
-	for {
-		n, err := conn.Read(buffer)
-		if n > 0 {
-			data = append(data, buffer[:n]...)
-		}
-		if err != nil {
-			if err == io.EOF {
-				break
+	for _, params := range HowMany(length) {
+		chunkSize := params[0]
+		count := params[1]
+		for i := 0; i < count; i++ {
+			buffer := make([]byte, chunkSize)
+			totalRead := 0
+			for totalRead < chunkSize {
+				n, err := conn.Read(buffer[totalRead:])
+				if n > 0 {
+					totalRead += n
+					data = append(data, buffer[totalRead-n:totalRead]...)
+				}
+				if err != nil {
+					return data, err
+				}
 			}
-			return data, err
-		}
-		if n < bufferLength || len(buffer) == length {
-			break
 		}
 	}
 	return
