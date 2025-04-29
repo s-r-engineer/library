@@ -6,7 +6,7 @@ import (
 	libraryErrors "github.com/s-r-engineer/library/errors"
 )
 
-func ReadConnection(conn GenericConnection, length int) (data []byte, err error) {
+func ReadConnection[T uint | uint32 | uint64](conn GenericConnection, length T) (data []byte, err error) {
 	if length == 0 {
 		length = 4096
 	}

@@ -30,12 +30,11 @@ var origins = map[int][][]int{
 		{68, 1},
 	},
 	0:  nil,
-	-1: nil,
 }
 
 func TestHowMany(t *testing.T) {
 	for k, v := range origins {
-		result := HowMany(k)
+		result := HowMany(uint(k))
 		require.Equal(t, result, v)
 		result1 := 0
 		for _, vv := range v {
