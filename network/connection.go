@@ -6,12 +6,6 @@ import (
 	libraryErrors "github.com/s-r-engineer/library/errors"
 )
 
-type GenericConnection interface {
-	Read([]byte) (int, error)
-	Write([]byte) (int, error)
-	Close() error
-}
-
 func ReadConnection(conn GenericConnection, length int) (data []byte, err error) {
 	bufferLength := 1024
 	if length > 0 {
