@@ -38,26 +38,31 @@ func GetECDHSecretFromConnection(conn libraryNetwork.GenericConnection) (string,
 		return "", err
 	}
 	pubKeyBytes := privKey.PublicKey().Bytes()
+	pubKeySize := len(pubKeyBytes)
+
 	if _, err = conn.Write(pubKeyBytes); err != nil {
 		return "", err
 	}
-	otherPubKeyBytes := make([]byte, curve.PublicKeySize())
+
+	otherPubKeyBytes := make([]byte, pubKeySize)
 	n, err := conn.Read(otherPubKeyBytes)
 	if err != nil {
 		return "", err
 	}
-	if n != curve.PublicKeySize() {
-		return "", fmt.Errorf("received incorrect public key length")
+	if n != pubKeySize {
+		return "", fmt.Errorf("received incorrect public key length: expected %d, got %d", pubKeySize, n)
 	}
+
 	otherPubKey, err := curve.NewPublicKey(otherPubKeyBytes)
 	if err != nil {
 		return "", fmt.Errorf("invalid public key received: %v", err)
 	}
+
 	sharedSecret, err := privKey.ECDH(otherPubKey)
 	if err != nil {
 		return "", err
 	}
-	symmetricKey := sha256.Sum256(sharedSecret)
 
+	symmetricKey := sha256.Sum256(sharedSecret)
 	return fmt.Sprintf("%x", symmetricKey), nil
 }
