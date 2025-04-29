@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	libraryErrors "github.com/s-r-engineer/library/errors"
 	libraryNumbers "github.com/s-r-engineer/library/numbers"
 	libraryStrings "github.com/s-r-engineer/library/strings"
 	"github.com/stretchr/testify/require"
@@ -15,7 +16,9 @@ func generateFields(amount int) map[string]any {
 	for {
 		m := make(map[string]any)
 		for i := amount; i > 0; i-- {
-			m[libraryStrings.RandString(defaultRandomStringLength)] = int64(libraryNumbers.SimpleRand())
+			randomNumber, err := libraryNumbers.SimpleRand()
+			libraryErrors.Panicer(err)
+			m[libraryStrings.RandString(defaultRandomStringLength)] = int64(randomNumber)
 		}
 		if len(m) != amount {
 			continue
