@@ -9,6 +9,7 @@ import (
 	"time"
 
 	libraryEncryption "github.com/s-r-engineer/library/encryption"
+	"github.com/stretchr/testify/require"
 )
 
 type LinkedMockConnection struct {
@@ -66,7 +67,7 @@ func TestGetDHSecretFromConnection(t *testing.T) {
 
 	clientConn, serverConn := NewLinkedMockConnections()
 
-	var clientSecret, serverSecret string
+	var clientSecret, serverSecret []byte
 	var clientErr, serverErr error
 
 	done := make(chan struct{})
@@ -84,21 +85,16 @@ func TestGetDHSecretFromConnection(t *testing.T) {
 	<-done
 	<-done
 
-	if clientErr != nil || serverErr != nil {
-		t.Fatalf("errors: clientErr=%v serverErr=%v", clientErr, serverErr)
-	}
+	require.NoError(t, clientErr)
+	require.NoError(t, serverErr)
 
-	if clientSecret != serverSecret {
-		t.Fatalf("shared secrets do not match: client=%s server=%s", clientSecret, serverSecret)
-	}
+	require.Equal(t, clientSecret, serverSecret)
 }
-
-
 
 func TestGetECDHSecretFromConnection(t *testing.T) {
 	clientConn, serverConn := NewLinkedMockConnections()
 
-	var clientSecret, serverSecret string
+	var clientSecret, serverSecret []byte
 	var clientErr, serverErr error
 
 	done := make(chan struct{})
@@ -116,11 +112,8 @@ func TestGetECDHSecretFromConnection(t *testing.T) {
 	<-done
 	<-done
 
-	if clientErr != nil || serverErr != nil {
-		t.Fatalf("errors: clientErr=%v serverErr=%v", clientErr, serverErr)
-	}
+	require.NoError(t, clientErr)
+	require.NoError(t, serverErr)
 
-	if clientSecret != serverSecret {
-		t.Fatalf("shared secrets do not match: client=%s server=%s", clientSecret, serverSecret)
-	}
+	require.Equal(t, clientSecret, serverSecret)
 }
