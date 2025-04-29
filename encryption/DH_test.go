@@ -61,6 +61,7 @@ func (c *LinkedMockConnection) Close() error {
 	return nil
 }
 
+// TODO make multiple requests in a row
 func TestGetDHSecretFromConnection(t *testing.T) {
 	p, _ := new(big.Int).SetString("23", 10)
 	g := big.NewInt(5)
@@ -94,18 +95,18 @@ func TestGetDHSecretFromConnection(t *testing.T) {
 func TestGetECDHSecretFromConnection(t *testing.T) {
 	clientConn, serverConn := NewLinkedMockConnections()
 
-	var clientSecret, serverSecret []byte
+	var sendKey1, rcvKey1, sendKey2, rcvKey2 []byte
 	var clientErr, serverErr error
 
 	done := make(chan struct{})
 
 	go func() {
-		clientSecret, clientErr = libraryEncryption.GetECDHSecretFromConnection(clientConn)
+		sendKey1, rcvKey1, clientErr = libraryEncryption.GetECDHKeysFromConnection(clientConn)
 		done <- struct{}{}
 	}()
 
 	go func() {
-		serverSecret, serverErr = libraryEncryption.GetECDHSecretFromConnection(serverConn)
+		sendKey2, rcvKey2, serverErr = libraryEncryption.GetECDHKeysFromConnection(serverConn)
 		done <- struct{}{}
 	}()
 
@@ -115,5 +116,6 @@ func TestGetECDHSecretFromConnection(t *testing.T) {
 	require.NoError(t, clientErr)
 	require.NoError(t, serverErr)
 
-	require.Equal(t, clientSecret, serverSecret)
+	require.Equal(t, sendKey1, rcvKey2)
+	require.Equal(t, sendKey2, rcvKey1)
 }

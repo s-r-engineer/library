@@ -1,12 +1,15 @@
 package libraryEncryption
 
 import (
+	"bytes"
 	"crypto/ecdh"
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
 	"io"
 	"math/big"
+
+	"golang.org/x/crypto/hkdf"
 
 	libraryErrors "github.com/s-r-engineer/library/errors"
 	libraryNetwork "github.com/s-r-engineer/library/network"
@@ -46,39 +49,61 @@ func GetDHSecretFromConnection(conn libraryNetwork.GenericConnection, p *big.Int
 	return symmetricKey[:], nil
 }
 
-func GetECDHSecretFromConnection(conn libraryNetwork.GenericConnection) ([]byte, error) {
-	wrappedError := libraryErrors.PartWrapError("GetECDHSecretFromConnection")
+func GetECDHKeysFromConnection(conn libraryNetwork.GenericConnection) (sendKey, recvKey []byte, err error) {
+	wrap := libraryErrors.PartWrapError("GetECDHKeysFromConnection")
 
 	curve := ecdh.P521()
 
 	privKey, err := curve.GenerateKey(rand.Reader)
 	if err != nil {
-		return nil, wrappedError(err)
+		return nil, nil, wrap(err)
 	}
 
 	pubKeyBytes := privKey.PublicKey().Bytes()
 	pubKeySize := len(pubKeyBytes)
-
 	if _, err := conn.Write(pubKeyBytes); err != nil {
-		return nil, wrappedError(err)
+		return nil, nil, wrap(err)
 	}
 
-	receivedBytes := make([]byte, pubKeySize)
-
-	if _, err := io.ReadFull(conn, receivedBytes); err != nil {
-		return nil, wrappedError(err)
+	otherPubKeyBytes := make([]byte, pubKeySize)
+	if _, err := io.ReadFull(conn, otherPubKeyBytes); err != nil {
+		return nil, nil, wrap(err)
 	}
 
-	otherPubKey, err := curve.NewPublicKey(receivedBytes)
+	otherPubKey, err := curve.NewPublicKey(otherPubKeyBytes)
 	if err != nil {
-		return nil, wrappedError(err)
+		return nil, nil, wrap(err)
 	}
 
 	sharedSecret, err := privKey.ECDH(otherPubKey)
 	if err != nil {
-		return nil, wrappedError(err)
+		return nil, nil, wrap(err)
 	}
 
-	symmetricKey := sha256.Sum256(sharedSecret)
-	return symmetricKey[:], nil
+	return deriveECDHKeys(sharedSecret, pubKeyBytes, otherPubKeyBytes)
+	}
+
+func deriveECDHKeys(sharedSecret, pubA, pubB []byte) (sendKey, recvKey []byte, err error) {
+	salt := []byte("ECDH-HKDF-salt")
+	infoSend := []byte("key:initiator")
+	infoRecv := []byte("key:responder")
+
+	if bytes.Compare(pubA, pubB) > 0 {
+		infoSend, infoRecv = infoRecv, infoSend
+	}
+
+	hkdfSend := hkdf.New(sha256.New, sharedSecret, salt, infoSend)
+	hkdfRecv := hkdf.New(sha256.New, sharedSecret, salt, infoRecv)
+
+	sendKey = make([]byte, 32)
+	recvKey = make([]byte, 32)
+
+	if _, err := io.ReadFull(hkdfSend, sendKey); err != nil {
+		return nil, nil, err
+	}
+	if _, err := io.ReadFull(hkdfRecv, recvKey); err != nil {
+		return nil, nil, err
+	}
+
+	return sendKey, recvKey, nil
 }
