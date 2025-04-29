@@ -8,13 +8,47 @@ import (
 	libraryStrings "github.com/s-r-engineer/library/strings"
 )
 
+func TestValueOrDefault(t *testing.T) {
+	bigger := func(a, b int) bool {
+		// t.Log(1)
+		return a > b
+	}
+	smaller := func(a, b int) bool {
+		return a < b
+	}
+	productIsOdd := func(a, b int) bool {
+		return (a*b)%2 == 0
+	}
+	require.Equal(t, ValueOrDefault(0, 100, nil), 100)
+	require.Equal(t, ValueOrDefault(1, 100, nil), 1)
+	require.Equal(t, ValueOrDefault(-1, 100, nil), 100)
+	require.Equal(t, ValueOrDefault(0, 100, bigger), 100)
+	require.Equal(t, ValueOrDefault(101, 100, bigger), 101)
+	require.Equal(t, ValueOrDefault(101, 100, smaller), 100)
+	require.Equal(t, ValueOrDefault(56, 100, smaller), 56)
+	require.Equal(t, ValueOrDefault(3, 9, productIsOdd), 9)
+	require.Equal(t, ValueOrDefault(3, 10, productIsOdd), 3)
+}
+
+func TestED(t *testing.T) {
+	salt := libraryStrings.RandString(16)
+	passphrase := libraryStrings.RandString(32)
+	ed, err := NewED(passphrase, salt, 0, 0, 46)
+	require.NoError(t, err)
+	require.Equal(t, ed.iterations, iterations)
+	require.Equal(t, ed.keyLength, keyLength)
+	require.Equal(t, ed.nonceLength, 46)
+}
+
 func TestEncryptor(t *testing.T) {
 	salt := libraryStrings.RandString(16)
 	data := libraryStrings.RandString(666)
 	passphrase := libraryStrings.RandString(32)
-	encrypted, err := EncryptAES(passphrase, salt, []byte(data))
+	ed, err := NewED(passphrase, salt, 0, 0, 0)
 	require.NoError(t, err)
-	decrypted, err := DecryptAES(passphrase, salt, encrypted)
+	encrypted, err := ed.EncryptAES([]byte(data))
+	require.NoError(t, err)
+	decrypted, err := ed.DecryptAES(encrypted)
 	require.NoError(t, err)
 	require.Equal(t, data, string(decrypted))
 }
@@ -23,9 +57,11 @@ func BenchmarkEncryptor(b *testing.B) {
 	salt := libraryStrings.RandString(16)
 	data := libraryStrings.RandString(666)
 	passphrase := libraryStrings.RandString(32)
+	ed, err := NewED(passphrase, salt, 0, 0, 8)
+	require.NoError(b, err)
 	for b.Loop() {
-		encrypted, _ := EncryptAES(passphrase, salt, []byte(data))
-		_, _ = DecryptAES(passphrase, salt, encrypted)
+		encrypted, _ := ed.EncryptAES([]byte(data))
+		_, _ = ed.DecryptAES(encrypted)
 
 	}
 }
