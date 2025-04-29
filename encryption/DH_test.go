@@ -40,7 +40,7 @@ import (
 // 	require.Equal(t, clientSecret, serverSecret)
 // }
 
-func TestGetECDHSecretFromConnection(t *testing.T) {
+func TestGetECDHSecretFromConnectionWithKeyDerivation(t *testing.T) {
 	clientConn, serverConn := libraryTesting.NewLinkedMockConnections()
 
 	var sendKey1, rcvKey1, sendKey2, rcvKey2 []byte
@@ -66,4 +66,31 @@ func TestGetECDHSecretFromConnection(t *testing.T) {
 
 	require.Equal(t, sendKey1, rcvKey2)
 	require.Equal(t, sendKey2, rcvKey1)
+}
+
+func TestGetECDHSecretFromConnection(t *testing.T) {
+	clientConn, serverConn := libraryTesting.NewLinkedMockConnections()
+
+	var key1, key2 []byte
+	var clientErr, serverErr error
+
+	done := make(chan struct{})
+
+	go func() {
+		key1, clientErr = libraryEncryption.GetECDHKeysFromConnection(clientConn)
+		done <- struct{}{}
+	}()
+
+	go func() {
+		key2, serverErr = libraryEncryption.GetECDHKeysFromConnection(serverConn)
+		done <- struct{}{}
+	}()
+
+	<-done
+	<-done
+
+	require.NoError(t, clientErr)
+	require.NoError(t, serverErr)
+
+	require.Equal(t, key1, key2)
 }
