@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"sync"
 	"testing"
+	"time"
 
 	libraryEncryption "github.com/s-r-engineer/library/encryption"
 )
@@ -30,10 +31,17 @@ func NewLinkedMockConnections() (*LinkedMockConnection, *LinkedMockConnection) {
 func (c *LinkedMockConnection) Read(p []byte) (int, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.closed {
-		return 0, errors.New("connection closed")
+	for {
+		if c.closed {
+			return 0, errors.New("connection closed")
+		}
+		if c.buffer.Len() > 0 {
+			return c.buffer.Read(p)
+		}
+		c.mu.Unlock()
+		time.Sleep(10 * time.Millisecond)
+		c.mu.Lock()
 	}
-	return c.buffer.Read(p)
 }
 
 func (c *LinkedMockConnection) Write(p []byte) (int, error) {
@@ -73,7 +81,38 @@ func TestGetDHSecretFromConnection(t *testing.T) {
 		done <- struct{}{}
 	}()
 
-	// Wait for both sides
+	<-done
+	<-done
+
+	if clientErr != nil || serverErr != nil {
+		t.Fatalf("errors: clientErr=%v serverErr=%v", clientErr, serverErr)
+	}
+
+	if clientSecret != serverSecret {
+		t.Fatalf("shared secrets do not match: client=%s server=%s", clientSecret, serverSecret)
+	}
+}
+
+
+
+func TestGetECDHSecretFromConnection(t *testing.T) {
+	clientConn, serverConn := NewLinkedMockConnections()
+
+	var clientSecret, serverSecret string
+	var clientErr, serverErr error
+
+	done := make(chan struct{})
+
+	go func() {
+		clientSecret, clientErr = libraryEncryption.GetECDHSecretFromConnection(clientConn)
+		done <- struct{}{}
+	}()
+
+	go func() {
+		serverSecret, serverErr = libraryEncryption.GetECDHSecretFromConnection(serverConn)
+		done <- struct{}{}
+	}()
+
 	<-done
 	<-done
 
