@@ -50,8 +50,6 @@ func WriteConnection(conn GenericConnection, data []byte) error {
 
 func ConnectPipes(conn1, conn2 GenericConnection, errChan chan error) {
 	copyData := func(dst, src GenericConnection, errChan chan error) {
-		defer dst.Close()
-		defer src.Close()
 		_, err := io.Copy(dst, src)
 		if errChan != nil {
 			errChan <- err
