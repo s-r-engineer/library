@@ -18,24 +18,22 @@ var (
 	Fatal func(string, ...any)
 	Debug func(string, ...any)
 
-	Sync func() error
+	Sync = func() {}
 
 	sentryEnabled bool
 )
 
-func init() {
-	sentryDSN, ok := os.LookupEnv("LOGGING_SENTRY_DSN")
-	log.SetFlags(log.LstdFlags | log.Llongfile | log.Lmicroseconds)
-
-	if ok && sentryDSN != "" {
+func InitSentry(sentryDSN string) {
+	if sentryDSN != "" {
 		err := sentry.Init(sentry.ClientOptions{
 			Dsn: sentryDSN,
 		})
 		if err != nil {
-			log.Printf("Sentry initialization failed: %v", err)
-		} else {
-			sentryEnabled = true
-			//log.Println("Sentry initialized")
+			Error("Sentry initialization failed: %v", err)
+			return
+		}
+		Sync = func() {
+			sentry.Flush(5 * time.Second) // wait up to 2 seconds
 		}
 		go func() {
 			for {
@@ -44,6 +42,10 @@ func init() {
 			}
 		}()
 	}
+}
+
+func init() {
+	log.SetFlags(log.LstdFlags | log.Llongfile | log.Lmicroseconds)
 
 	Info = logAndCapture("info", false)
 	Warn = logAndCapture("warning", true)
@@ -52,12 +54,8 @@ func init() {
 	Panic = logAndCapture("panic", true)
 	Fatal = logAndCapture("fatal", true)
 
-	Sync = func() error {
-		if sentryEnabled {
-			sentry.Flush(5 * time.Second) // wait up to 2 seconds
-		}
-		return nil
-	}
+	sentryDSN, _ := os.LookupEnv("LOGGING_SENTRY_DSN")
+	InitSentry(sentryDSN)
 }
 
 func logAndCapture(level string, sendToSentry bool) func(string, ...any) {
