@@ -37,8 +37,8 @@ func NewED(secret, salt []byte, keyLengthUser, iterationsUser, nonceLengthUser i
 }
 
 type ED struct {
-	key                                []byte
-	nonce                              uint64
+	key         []byte
+	nonce       uint64
 	nonceLength int
 }
 
