@@ -1,44 +1,63 @@
 package libraryDereferer
 
 import (
-	libraryLogging "github.com/s-r-engineer/library/logging"
+	libraryErrors "github.com/s-r-engineer/library/errors"
 	librarySync "github.com/s-r-engineer/library/sync"
 )
 
 const defaultStackSize = 100
 
-func GetDefaultDereferer() (func(func()), func()) {
-	return GetDereferer(defaultStackSize)
+func GetDefaultDereferer() (func(func()) error, func()) {
+	return GetDereferer(defaultStackSize, false)
 }
 
-func GetDereferer(stackSize int) (func(func()), func()) {
-	derefererStack := make(chan func(), stackSize) // Use a buffered channel.
+func GetDereferer(stackSize int, FIFO bool) (func(func()) error, func()) {
+	derefererStack := make(chan func(), stackSize)
 	add, done, wait := librarySync.GetWait()
 	lock, unlock := librarySync.GetMutex()
-	once := librarySync.GetOnce()
-	return func(f func()) {
-			if f == nil {
-				libraryLogging.Error("empty function")
-				return
+	closeOnce := librarySync.GetOnce()
+
+	push := func(f func()) error {
+		if f == nil {
+			return libraryErrors.NewError("empty function")
+		}
+		select {
+		case derefererStack <- f:
+		default:
+			return libraryErrors.NewError("dereferer stack is full, function rejected")
+		}
+		return nil
+	}
+
+	drain := func() {
+		lock()
+		defer unlock()
+
+		closeOnce(func() {
+			close(derefererStack)
+		})
+
+		if FIFO {
+			for f := range derefererStack {
+				f()
 			}
-			select {
-			case derefererStack <- f:
-			default:
-				libraryLogging.Error("dereferer stack is full, function rejected")
-			}
-		}, func() {
-			lock()
-			defer unlock()
-			once(func() {
-				close(derefererStack)
-			})
-			for funcFromStack := range derefererStack {
+		} else {
+			for f := range derefererStack {
 				add()
 				go func(f func()) {
 					defer done()
 					f()
-				}(funcFromStack)
+				}(f)
 			}
 			wait()
 		}
+	}
+
+	return push, drain
+}
+
+func WrapErrorFromFunctionForDereferer(f func() error) func() {
+	return func() {
+		libraryErrors.Errorer(f())
+	}
 }
