@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/getsentry/sentry-go"
-	"log"
+
 	"os"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -45,8 +46,6 @@ func InitSentry(sentryDSN string) {
 }
 
 func init() {
-	log.SetFlags(log.LstdFlags | log.Llongfile | log.Lmicroseconds)
-
 	Info = logAndCapture("info", false)
 	Warn = logAndCapture("warning", true)
 	Error = logAndCapture("error", true)
@@ -61,7 +60,11 @@ func init() {
 func logAndCapture(level string, sendToSentry bool) func(string, ...any) {
 	var sentryLevel sentry.Level
 	var printFunc = func(v ...any) {
-		log.Print(v[0])
+		fmt.Println(v[0])
+	}
+	var fileLine = func() string {
+		_, file, line, _ := runtime.Caller(2)
+		return fmt.Sprintf("%s:%d", file, line)
 	}
 	switch level {
 	case "info":
@@ -77,12 +80,19 @@ func logAndCapture(level string, sendToSentry bool) func(string, ...any) {
 		sentryLevel = sentry.LevelFatal
 		printFunc = func(v ...any) {
 			Sync()
-			log.Fatal(v[0])
+			fmt.Println(v[0])
 		}
 	}
 
 	return func(msg string, args ...any) {
-		formatted := formatLog(level, msg, args...)
+		timeStamp := time.Now()
+		var formatted string
+		if sentryLevel == sentry.LevelDebug {
+			fileAndLine := fileLine()
+			formatted = fmt.Sprintf("%d %s %s [%s] %s", timeStamp.UnixMicro(), timeStamp.Format("2006-01-02 15:04:05.000"), fileAndLine, strings.ToUpper(level), fmt.Sprintf(msg, args...))
+		} else {
+			formatted = fmt.Sprintf("%s [%s] %s", timeStamp.Format("2006-01-02 15:04:05.000"), strings.ToUpper(level), fmt.Sprintf(msg, args...))
+		}
 		if sendToSentry && sentryEnabled {
 			stacktrace2 := sentry.NewStacktrace(3)
 			exception := sentry.Exception{
@@ -99,10 +109,6 @@ func logAndCapture(level string, sendToSentry bool) func(string, ...any) {
 		}
 		printFunc(formatted)
 	}
-}
-
-func formatLog(level, msg string, args ...any) string {
-	return fmt.Sprintf("[%s] %s", strings.ToUpper(level), fmt.Sprintf(msg, args...))
 }
 
 func Dumper(args ...any) {
