@@ -1,6 +1,7 @@
 package libraryIO
 
 import (
+	libraryDereferer "github.com/s-r-engineer/library/dereferer"
 	"os"
 	"strings"
 )
@@ -43,14 +44,18 @@ func CreateDirs(dirPath string) error {
 	return os.MkdirAll(dirPath, 0700)
 }
 
-func CreateTempFoder(preffixAndSuffix ...string) (string, func(), error) {
-	tempDir, err := os.MkdirTemp("", strings.Join(preffixAndSuffix,"*"))
+func CreateTempFolder(preffixAndSuffix ...string) (string, func(), error) {
+	tempDir, err := os.MkdirTemp("", strings.Join(preffixAndSuffix, "*"))
 	if err != nil {
 		return tempDir, func() {}, err
 	}
 	return tempDir, func() { os.RemoveAll(tempDir) }, err
 }
 
-func CreateTempFile(tempFolder string) {
-	os.CreateTemp(tempFolder,"")
+func CreateTempFile(tempFolder string) (*os.File, func(), error) {
+	file, err := os.CreateTemp(tempFolder, "")
+	if err != nil {
+		return nil, nil, err
+	}
+	return file, libraryDereferer.WrapErrorFromFunctionForDereferer(file.Close), nil
 }
