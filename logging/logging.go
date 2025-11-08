@@ -2,10 +2,10 @@ package libraryLogging
 
 import (
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
-	"os"
 	"strings"
 	"time"
+
+	"github.com/davecgh/go-spew/spew"
 )
 
 var (
